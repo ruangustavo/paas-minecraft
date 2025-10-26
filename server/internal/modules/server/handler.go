@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"paas-minecraft/internal/modules/server/repository"
 	"paas-minecraft/internal/modules/server/service"
 
 	"github.com/labstack/echo/v4"
@@ -9,11 +10,13 @@ import (
 
 type ServerHandler struct {
 	dockerService *service.DockerService
+	serverRepo    *repository.ServerRepository
 }
 
-func NewServerHandler(dockerService *service.DockerService) *ServerHandler {
+func NewServerHandler(dockerService *service.DockerService, serverRepo *repository.ServerRepository) *ServerHandler {
 	return &ServerHandler{
 		dockerService: dockerService,
+		serverRepo:    serverRepo,
 	}
 }
 
@@ -25,6 +28,9 @@ type Server struct {
 	Name string `json:"name" validate:"required"`
 }
 
+// TODO: check container allowed name and sanitize it
+// TODO: check if some container with this name exists
+// TODO: think how to know which port the container is running? maybe persisting is not a option because the container can be down, idk...
 func (sc *ServerHandler) CreateServer(c echo.Context) error {
 	server := new(Server)
 
@@ -46,5 +52,16 @@ func (sc *ServerHandler) CreateServer(c echo.Context) error {
 		})
 	}
 
-	return c.NoContent(http.StatusCreated)
+	createdServer, err := sc.serverRepo.Create(server.Name)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(http.StatusCreated, map[string]string{
+		"message": "Server created successfully",
+		"id":      createdServer.ID.String(),
+		"name":    createdServer.Name,
+	})
 }

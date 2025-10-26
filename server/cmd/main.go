@@ -1,9 +1,12 @@
 package main
 
 import (
+	"log"
 	"net/http"
 	"paas-minecraft/internal/modules/server"
+	"paas-minecraft/internal/modules/server/repository"
 	"paas-minecraft/internal/modules/server/service"
+	"paas-minecraft/internal/shared/database"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
@@ -22,6 +25,10 @@ func (cv *CustomValidator) Validate(i interface{}) error {
 }
 
 func main() {
+	if err := database.InitDB(); err != nil {
+		log.Fatalln("Failed to connect to database:", err)
+	}
+
 	e := echo.New()
 
 	e.Validator = &CustomValidator{validator: validator.New()}
@@ -29,8 +36,9 @@ func main() {
 	e.Use(middleware.Recover())
 
 	dockerService := service.NewDockerService()
+	serverRepo := repository.NewServerRepository()
 
-	serverHandler := server.NewServerHandler(dockerService)
+	serverHandler := server.NewServerHandler(dockerService, serverRepo)
 	serverHandler.RegisterRoutes(e)
 
 	e.Logger.Fatal(e.Start(":8080"))
