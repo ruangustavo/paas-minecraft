@@ -17,12 +17,13 @@ services:
     ports:
       - "25565:25565"
     volumes:
-      - ./config/infrared/configs:/configs
+      - ./config/infrared/proxies:/proxies
       - ./config/infrared/config.yml:/config.yml:ro
     networks:
       - minecraft-network
     environment:
-      - INFRARED_CONFIG_PATH=/config.yml
+      - INFRARED_CONFIG=/config.yml
+      - INFRARED_PROXIES_DIR=/proxies
 
 networks:
   minecraft-network:

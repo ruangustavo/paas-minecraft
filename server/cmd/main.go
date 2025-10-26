@@ -36,9 +36,10 @@ func main() {
 	e.Use(middleware.Recover())
 
 	dockerService := service.NewDockerService()
+	infraredService := service.NewInfraredService("./config/infrared/proxies", dockerService)
 	serverRepo := repository.NewServerRepository()
 
-	serverHandler := server.NewServerHandler(dockerService, serverRepo)
+	serverHandler := server.NewServerHandler(dockerService, infraredService, serverRepo)
 	serverHandler.RegisterRoutes(e)
 
 	e.Logger.Fatal(e.Start(":8080"))

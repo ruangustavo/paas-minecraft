@@ -7,8 +7,8 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
-	"github.com/docker/go-connections/nat"
 )
 
 type DockerService struct{}
@@ -41,22 +41,40 @@ func (ds *DockerService) Create(name string) error {
 		Image: minecraftImage,
 		Tty:   false,
 		Env:   []string{"EULA=TRUE"},
-	}, &container.HostConfig{
-		PortBindings: nat.PortMap{
-			"25565/tcp": []nat.PortBinding{
-				{
-					HostIP:   "0.0.0.0",
-					HostPort: "25565",
-				},
-			},
+		Labels: map[string]string{
+			"paas.minecraft.server": "true",
 		},
-	}, nil, nil, name)
+	}, &container.HostConfig{}, &network.NetworkingConfig{
+		EndpointsConfig: map[string]*network.EndpointSettings{
+			"server_minecraft-network": {},
+		},
+	}, nil, name)
 	if err != nil {
 		return fmt.Errorf("failed to create container: %w", err)
 	}
 
 	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		return fmt.Errorf("failed to start container: %w", err)
+	}
+
+	return nil
+}
+
+func (ds *DockerService) Restart(containerName string) error {
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return fmt.Errorf("failed to create docker client: %w", err)
+	}
+	defer cli.Close()
+
+	timeout := 10
+	stopOptions := container.StopOptions{
+		Timeout: &timeout,
+	}
+
+	if err := cli.ContainerRestart(ctx, containerName, stopOptions); err != nil {
+		return fmt.Errorf("failed to restart container: %w", err)
 	}
 
 	return nil

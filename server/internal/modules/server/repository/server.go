@@ -12,9 +12,11 @@ func NewServerRepository() *ServerRepository {
 	return &ServerRepository{}
 }
 
-func (sr *ServerRepository) Create(name string) (*model.Server, error) {
+func (sr *ServerRepository) Create(name string, port int, subdomain string) (*model.Server, error) {
 	server := &model.Server{
-		Name: name,
+		Name:      name,
+		Port:      port,
+		Subdomain: subdomain,
 	}
 
 	db := database.GetDB()

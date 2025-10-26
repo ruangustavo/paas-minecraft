@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 	"paas-minecraft/internal/modules/server/repository"
 	"paas-minecraft/internal/modules/server/service"
@@ -9,14 +10,16 @@ import (
 )
 
 type ServerHandler struct {
-	dockerService *service.DockerService
-	serverRepo    *repository.ServerRepository
+	dockerService   *service.DockerService
+	infraredService *service.InfraredService
+	serverRepo      *repository.ServerRepository
 }
 
-func NewServerHandler(dockerService *service.DockerService, serverRepo *repository.ServerRepository) *ServerHandler {
+func NewServerHandler(dockerService *service.DockerService, infraredService *service.InfraredService, serverRepo *repository.ServerRepository) *ServerHandler {
 	return &ServerHandler{
-		dockerService: dockerService,
-		serverRepo:    serverRepo,
+		dockerService:   dockerService,
+		infraredService: infraredService,
+		serverRepo:      serverRepo,
 	}
 }
 
@@ -28,7 +31,6 @@ type Server struct {
 	Name string `json:"name" validate:"required,alphanum"`
 }
 
-// TODO: think how to know which port the container is running? maybe persisting is not a option because the container can be down, idk...
 func (sc *ServerHandler) CreateServer(c echo.Context) error {
 	server := new(Server)
 
@@ -58,16 +60,27 @@ func (sc *ServerHandler) CreateServer(c echo.Context) error {
 		})
 	}
 
-	createdServer, err := sc.serverRepo.Create(server.Name)
+	const internalPort = 25565
+	subdomain := server.Name + ".ruangustavo.com"
+
+	if err := sc.infraredService.CreateProxyConfig(server.Name, subdomain); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": fmt.Sprintf("failed to create proxy config: %v", err),
+		})
+	}
+
+	createdServer, err := sc.serverRepo.Create(server.Name, internalPort, subdomain)
 	if err != nil {
+		sc.infraredService.DeleteProxyConfig(server.Name)
 		return c.JSON(http.StatusBadRequest, map[string]string{
 			"error": err.Error(),
 		})
 	}
 
 	return c.JSON(http.StatusCreated, map[string]string{
-		"message": "Server created successfully",
-		"id":      createdServer.ID.String(),
-		"name":    createdServer.Name,
+		"message":   "Server created successfully",
+		"id":        createdServer.ID.String(),
+		"name":      createdServer.Name,
+		"subdomain": createdServer.Subdomain,
 	})
 }
