@@ -49,43 +49,65 @@ func (sc *ServerHandler) CreateServer(c echo.Context) error {
 	}
 
 	existingServer, err := sc.serverRepo.FindByName(server.Name)
-
 	if err == nil && existingServer != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{
 			"error": "Container with this name already exists",
 		})
 	}
 
+	var (
+		dockerCreated bool
+		proxyCreated  bool
+		dnsCreated    bool
+		dbCreated     bool
+		subdomain     string
+	)
+
+	defer func() {
+		if !dbCreated {
+			if dnsCreated {
+				sc.cloudflareService.DeleteDNSRecord(subdomain)
+			}
+			if proxyCreated {
+				sc.infraredService.DeleteProxyConfig(server.Name)
+			}
+			if dockerCreated {
+				sc.dockerService.Delete(server.Name)
+			}
+		}
+	}()
+
 	if err := sc.dockerService.Create(server.Name); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": err.Error(),
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": fmt.Sprintf("failed to create container: %v", err),
 		})
 	}
+	dockerCreated = true
 
 	const internalPort = 25565
-	subdomain := fmt.Sprintf("%s.%s", server.Name, sc.cloudflareService.BaseDomain())
+	subdomain = fmt.Sprintf("%s.%s", server.Name, sc.cloudflareService.BaseDomain())
 
 	if err := sc.infraredService.CreateProxyConfig(server.Name, subdomain); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": fmt.Sprintf("failed to create proxy config: %v", err),
 		})
 	}
+	proxyCreated = true
 
 	if err := sc.cloudflareService.CreateDNSRecord(subdomain); err != nil {
-		sc.infraredService.DeleteProxyConfig(server.Name)
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": fmt.Sprintf("failed to create DNS record: %v", err),
 		})
 	}
+	dnsCreated = true
 
 	createdServer, err := sc.serverRepo.Create(server.Name, internalPort, subdomain)
 	if err != nil {
-		sc.cloudflareService.DeleteDNSRecord(subdomain)
-		sc.infraredService.DeleteProxyConfig(server.Name)
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": err.Error(),
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": fmt.Sprintf("failed to save server: %v", err),
 		})
 	}
+	dbCreated = true
 
 	return c.JSON(http.StatusCreated, map[string]string{
 		"message":   "Server created successfully",
