@@ -1,0 +1,3 @@
+receiveProxyProtocol: false
+sendProxyProtocol: false
+timeout: 1000

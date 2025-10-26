@@ -10,5 +10,23 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  infrared:
+    image: haveachin/infrared:latest
+    container_name: infrared-proxy
+    restart: unless-stopped
+    ports:
+      - "25565:25565"
+    volumes:
+      - ./config/infrared/configs:/configs
+      - ./config/infrared/config.yml:/config.yml:ro
+    networks:
+      - minecraft-network
+    environment:
+      - INFRARED_CONFIG_PATH=/config.yml
+
+networks:
+  minecraft-network:
+    driver: bridge
+
 volumes:
   postgres_data:
