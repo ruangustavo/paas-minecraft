@@ -7,17 +7,17 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-type ServerController struct {
+type ServerHandler struct {
 	dockerService *service.DockerService
 }
 
-func NewServerController(dockerService *service.DockerService) *ServerController {
-	return &ServerController{
+func NewServerHandler(dockerService *service.DockerService) *ServerHandler {
+	return &ServerHandler{
 		dockerService: dockerService,
 	}
 }
 
-func (sc *ServerController) RegisterRoutes(e *echo.Echo) {
+func (sc *ServerHandler) RegisterRoutes(e *echo.Echo) {
 	e.POST("/servers", sc.CreateServer)
 }
 
@@ -25,7 +25,7 @@ type Server struct {
 	Name string `json:"name" validate:"required"`
 }
 
-func (sc *ServerController) CreateServer(c echo.Context) error {
+func (sc *ServerHandler) CreateServer(c echo.Context) error {
 	server := new(Server)
 
 	if err := c.Bind(server); err != nil {

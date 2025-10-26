@@ -30,8 +30,8 @@ func main() {
 
 	dockerService := service.NewDockerService()
 
-	serverController := server.NewServerController(dockerService)
-	serverController.RegisterRoutes(e)
+	serverHandler := server.NewServerHandler(dockerService)
+	serverHandler.RegisterRoutes(e)
 
 	e.Logger.Fatal(e.Start(":8080"))
 }
