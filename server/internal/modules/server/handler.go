@@ -10,16 +10,18 @@ import (
 )
 
 type ServerHandler struct {
-	dockerService   *service.DockerService
-	infraredService *service.InfraredService
-	serverRepo      *repository.ServerRepository
+	dockerService     *service.DockerService
+	infraredService   *service.InfraredService
+	cloudflareService *service.CloudflareService
+	serverRepo        *repository.ServerRepository
 }
 
-func NewServerHandler(dockerService *service.DockerService, infraredService *service.InfraredService, serverRepo *repository.ServerRepository) *ServerHandler {
+func NewServerHandler(dockerService *service.DockerService, infraredService *service.InfraredService, serverRepo *repository.ServerRepository, cloudflareService *service.CloudflareService) *ServerHandler {
 	return &ServerHandler{
-		dockerService:   dockerService,
-		infraredService: infraredService,
-		serverRepo:      serverRepo,
+		dockerService:     dockerService,
+		infraredService:   infraredService,
+		cloudflareService: cloudflareService,
+		serverRepo:        serverRepo,
 	}
 }
 
@@ -61,7 +63,7 @@ func (sc *ServerHandler) CreateServer(c echo.Context) error {
 	}
 
 	const internalPort = 25565
-	subdomain := server.Name + ".ruangustavo.com"
+	subdomain := fmt.Sprintf("%s.%s", server.Name, sc.cloudflareService.BaseDomain())
 
 	if err := sc.infraredService.CreateProxyConfig(server.Name, subdomain); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
@@ -69,8 +71,16 @@ func (sc *ServerHandler) CreateServer(c echo.Context) error {
 		})
 	}
 
+	if err := sc.cloudflareService.CreateDNSRecord(subdomain); err != nil {
+		sc.infraredService.DeleteProxyConfig(server.Name)
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": fmt.Sprintf("failed to create DNS record: %v", err),
+		})
+	}
+
 	createdServer, err := sc.serverRepo.Create(server.Name, internalPort, subdomain)
 	if err != nil {
+		sc.cloudflareService.DeleteDNSRecord(subdomain)
 		sc.infraredService.DeleteProxyConfig(server.Name)
 		return c.JSON(http.StatusBadRequest, map[string]string{
 			"error": err.Error(),
