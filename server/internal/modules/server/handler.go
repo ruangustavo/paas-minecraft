@@ -25,11 +25,9 @@ func (sc *ServerHandler) RegisterRoutes(e *echo.Echo) {
 }
 
 type Server struct {
-	Name string `json:"name" validate:"required"`
+	Name string `json:"name" validate:"required,alphanum"`
 }
 
-// TODO: check container allowed name and sanitize it
-// TODO: check if some container with this name exists
 // TODO: think how to know which port the container is running? maybe persisting is not a option because the container can be down, idk...
 func (sc *ServerHandler) CreateServer(c echo.Context) error {
 	server := new(Server)
@@ -46,8 +44,16 @@ func (sc *ServerHandler) CreateServer(c echo.Context) error {
 		})
 	}
 
+	existingServer, err := sc.serverRepo.FindByName(server.Name)
+
+	if err == nil && existingServer != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Container with this name already exists",
+		})
+	}
+
 	if err := sc.dockerService.Create(server.Name); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
+		return c.JSON(http.StatusBadRequest, map[string]string{
 			"error": err.Error(),
 		})
 	}
