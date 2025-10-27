@@ -43,22 +43,16 @@ func (sc *ServerHandler) CreateServer(c echo.Context) error {
 	server := new(Server)
 
 	if err := c.Bind(server); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Invalid request data",
-		})
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request data")
 	}
 
 	if err := c.Validate(server); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": err.Error(),
-		})
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
 	existingServer, err := sc.serverRepo.FindByName(server.Name)
 	if err == nil && existingServer != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Container with this name already exists",
-		})
+		return echo.NewHTTPError(http.StatusBadRequest, "Container with this name already exists")
 	}
 
 	var (
@@ -84,9 +78,7 @@ func (sc *ServerHandler) CreateServer(c echo.Context) error {
 	}()
 
 	if err := sc.dockerService.Create(server.Name); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": fmt.Sprintf("failed to create container: %v", err),
-		})
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to create container: %v", err))
 	}
 	dockerCreated = true
 
@@ -94,24 +86,18 @@ func (sc *ServerHandler) CreateServer(c echo.Context) error {
 	subdomain = fmt.Sprintf("%s.%s", server.Name, sc.cloudflareService.BaseDomain())
 
 	if err := sc.infraredService.CreateProxyConfig(server.Name, subdomain); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": fmt.Sprintf("failed to create proxy config: %v", err),
-		})
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to create proxy config: %v", err))
 	}
 	proxyCreated = true
 
 	if err := sc.cloudflareService.CreateDNSRecord(subdomain); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": fmt.Sprintf("failed to create DNS record: %v", err),
-		})
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to create DNS record: %v", err))
 	}
 	dnsCreated = true
 
 	createdServer, err := sc.serverRepo.Create(server.Name, internalPort, subdomain)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": fmt.Sprintf("failed to save server: %v", err),
-		})
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to save server: %v", err))
 	}
 	dbCreated = true
 
@@ -126,9 +112,7 @@ func (sc *ServerHandler) CreateServer(c echo.Context) error {
 func (sc *ServerHandler) ListServers(c echo.Context) error {
 	servers, err := sc.serverRepo.FindAll()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": fmt.Sprintf("failed to list servers: %v", err),
-		})
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to list servers: %v", err))
 	}
 
 	return c.JSON(http.StatusOK, servers)
@@ -138,16 +122,12 @@ func (sc *ServerHandler) GetServer(c echo.Context) error {
 	id := c.Param("id")
 	serverID, err := uuid.Parse(id)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Invalid server ID",
-		})
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid server ID")
 	}
 
 	server, err := sc.serverRepo.FindByID(serverID)
 	if err != nil {
-		return c.JSON(http.StatusNotFound, map[string]string{
-			"error": "Server not found",
-		})
+		return echo.NewHTTPError(http.StatusNotFound, "Server not found")
 	}
 
 	return c.JSON(http.StatusOK, server)
@@ -157,16 +137,12 @@ func (sc *ServerHandler) StartServer(c echo.Context) error {
 	id := c.Param("id")
 	serverID, err := uuid.Parse(id)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Invalid server ID",
-		})
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid server ID")
 	}
 
 	server, err := sc.serverRepo.FindByID(serverID)
 	if err != nil {
-		return c.JSON(http.StatusNotFound, map[string]string{
-			"error": "Server not found",
-		})
+		return echo.NewHTTPError(http.StatusNotFound, "Server not found")
 	}
 
 	if server.Status == "running" {
@@ -177,22 +153,16 @@ func (sc *ServerHandler) StartServer(c echo.Context) error {
 	}
 
 	if err := sc.serverRepo.UpdateStatus(serverID, "starting"); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": fmt.Sprintf("failed to update server status: %v", err),
-		})
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to update server status: %v", err))
 	}
 
 	if err := sc.dockerService.Start(server.Name); err != nil {
 		sc.serverRepo.UpdateStatus(serverID, "stopped")
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": fmt.Sprintf("failed to start container: %v", err),
-		})
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to start container: %v", err))
 	}
 
 	if err := sc.serverRepo.UpdateStatus(serverID, "running"); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": fmt.Sprintf("failed to update server status: %v", err),
-		})
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to update server status: %v", err))
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{
@@ -205,16 +175,12 @@ func (sc *ServerHandler) StopServer(c echo.Context) error {
 	id := c.Param("id")
 	serverID, err := uuid.Parse(id)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Invalid server ID",
-		})
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid server ID")
 	}
 
 	server, err := sc.serverRepo.FindByID(serverID)
 	if err != nil {
-		return c.JSON(http.StatusNotFound, map[string]string{
-			"error": "Server not found",
-		})
+		return echo.NewHTTPError(http.StatusNotFound, "Server not found")
 	}
 
 	if server.Status == "stopped" {
@@ -225,22 +191,16 @@ func (sc *ServerHandler) StopServer(c echo.Context) error {
 	}
 
 	if err := sc.serverRepo.UpdateStatus(serverID, "stopping"); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": fmt.Sprintf("failed to update server status: %v", err),
-		})
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to update server status: %v", err))
 	}
 
 	if err := sc.dockerService.Stop(server.Name); err != nil {
 		sc.serverRepo.UpdateStatus(serverID, "running")
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": fmt.Sprintf("failed to stop container: %v", err),
-		})
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to stop container: %v", err))
 	}
 
 	if err := sc.serverRepo.UpdateStatus(serverID, "stopped"); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": fmt.Sprintf("failed to update server status: %v", err),
-		})
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to update server status: %v", err))
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{
@@ -253,16 +213,12 @@ func (sc *ServerHandler) DeleteServer(c echo.Context) error {
 	id := c.Param("id")
 	serverID, err := parseUUID(id)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Invalid server ID",
-		})
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid server ID")
 	}
 
 	server, err := sc.serverRepo.FindByID(serverID)
 	if err != nil {
-		return c.JSON(http.StatusNotFound, map[string]string{
-			"error": "Server not found",
-		})
+		return echo.NewHTTPError(http.StatusNotFound, "Server not found")
 	}
 
 	if err := sc.dockerService.Delete(server.Name); err != nil {
