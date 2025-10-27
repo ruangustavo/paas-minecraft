@@ -4,6 +4,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"paas-minecraft/internal/modules/auth"
+	authMiddleware "paas-minecraft/internal/modules/auth/middleware"
+	authRepo "paas-minecraft/internal/modules/auth/repository"
+	authService "paas-minecraft/internal/modules/auth/service"
 	"paas-minecraft/internal/modules/server"
 	"paas-minecraft/internal/modules/server/repository"
 	"paas-minecraft/internal/modules/server/service"
@@ -49,15 +53,17 @@ func main() {
 	serverIP := os.Getenv("SERVER_PUBLIC_IP")
 	baseDomain := os.Getenv("BASE_DOMAIN")
 
-	if cfToken == "" || cfZone == "" || serverIP == "" || baseDomain == "" {
-		log.Fatalln("One or more required environment variables (CLOUDFLARE_API_TOKEN, CLOUDFLARE_ZONE_ID, SERVER_PUBLIC_IP, BASE_DOMAIN) are missing")
-	}
-
 	cloudflareService := service.NewCloudflareService(cfToken, cfZone, serverIP, baseDomain)
 	serverRepo := repository.NewServerRepository()
 
+	userRepo := authRepo.NewUserRepository()
+	authSvc := authService.NewAuthService(userRepo)
+	authHandler := auth.NewAuthHandler(authSvc)
+	authHandler.RegisterRoutes(e)
+
+	jwtMiddleware := authMiddleware.JWTAuth(authSvc)
 	serverHandler := server.NewServerHandler(dockerService, infraredService, serverRepo, cloudflareService)
-	serverHandler.RegisterRoutes(e)
+	serverHandler.RegisterRoutes(e, jwtMiddleware)
 
 	e.Logger.Fatal(e.Start(":8080"))
 }

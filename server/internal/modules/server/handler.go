@@ -26,13 +26,14 @@ func NewServerHandler(dockerService *service.DockerService, infraredService *ser
 	}
 }
 
-func (sc *ServerHandler) RegisterRoutes(e *echo.Echo) {
-	e.POST("/servers", sc.CreateServer)
-	e.GET("/servers", sc.ListServers)
-	e.GET("/servers/:id", sc.GetServer)
-	e.POST("/servers/:id/start", sc.StartServer)
-	e.POST("/servers/:id/stop", sc.StopServer)
-	e.DELETE("/servers/:id", sc.DeleteServer)
+func (sc *ServerHandler) RegisterRoutes(e *echo.Echo, middlewares ...echo.MiddlewareFunc) {
+	servers := e.Group("/servers", middlewares...)
+	servers.POST("", sc.CreateServer)
+	servers.GET("", sc.ListServers)
+	servers.GET("/:id", sc.GetServer)
+	servers.POST("/:id/start", sc.StartServer)
+	servers.POST("/:id/stop", sc.StopServer)
+	servers.DELETE("/:id", sc.DeleteServer)
 }
 
 type Server struct {
@@ -211,7 +212,7 @@ func (sc *ServerHandler) StopServer(c echo.Context) error {
 
 func (sc *ServerHandler) DeleteServer(c echo.Context) error {
 	id := c.Param("id")
-	serverID, err := parseUUID(id)
+	serverID, err := uuid.Parse(id)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid server ID")
 	}
@@ -222,27 +223,19 @@ func (sc *ServerHandler) DeleteServer(c echo.Context) error {
 	}
 
 	if err := sc.dockerService.Delete(server.Name); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": fmt.Sprintf("failed to delete container: %v", err),
-		})
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to delete container: %v", err))
 	}
 
 	if err := sc.infraredService.DeleteProxyConfig(server.Name); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": fmt.Sprintf("failed to delete proxy config: %v", err),
-		})
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to delete proxy config: %v", err))
 	}
 
 	if err := sc.cloudflareService.DeleteDNSRecord(server.Subdomain); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": fmt.Sprintf("failed to delete DNS record: %v", err),
-		})
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to delete DNS record: %v", err))
 	}
 
 	if err := sc.serverRepo.Delete(serverID); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": fmt.Sprintf("failed to delete server record: %v", err),
-		})
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to delete server record: %v", err))
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{
