@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
@@ -99,4 +101,112 @@ func (ds *DockerService) Restart(containerName string) error {
 	}
 
 	return nil
+}
+
+func (ds *DockerService) Start(containerName string) error {
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return fmt.Errorf("failed to create docker client: %w", err)
+	}
+	defer cli.Close()
+
+	if err := cli.ContainerStart(ctx, containerName, container.StartOptions{}); err != nil {
+		return fmt.Errorf("failed to start container: %w", err)
+	}
+
+	return nil
+}
+
+func (ds *DockerService) Stop(containerName string) error {
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return fmt.Errorf("failed to create docker client: %w", err)
+	}
+	defer cli.Close()
+
+	timeout := 10
+	stopOptions := container.StopOptions{
+		Timeout: &timeout,
+	}
+
+	if err := cli.ContainerStop(ctx, containerName, stopOptions); err != nil {
+		if !errdefs.IsNotFound(err) {
+			return fmt.Errorf("failed to stop container: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (ds *DockerService) GetContainerStatus(containerName string) (string, error) {
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return "", fmt.Errorf("failed to create docker client: %w", err)
+	}
+	defer cli.Close()
+
+	containerJSON, err := cli.ContainerInspect(ctx, containerName)
+	if err != nil {
+		if errdefs.IsNotFound(err) {
+			return "not_found", nil
+		}
+		return "", fmt.Errorf("failed to inspect container: %w", err)
+	}
+
+	if containerJSON.State.Running {
+		return "running", nil
+	}
+	return "stopped", nil
+}
+
+type ContainerInfo struct {
+	ID      string    `json:"id"`
+	Name    string    `json:"name"`
+	Status  string    `json:"status"`
+	Created time.Time `json:"created"`
+}
+
+func (ds *DockerService) List() ([]ContainerInfo, error) {
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create docker client: %w", err)
+	}
+	defer cli.Close()
+
+	filterArgs := filters.NewArgs()
+	filterArgs.Add("label", "paas.minecraft.server=true")
+
+	containers, err := cli.ContainerList(ctx, container.ListOptions{
+		All:     true,
+		Filters: filterArgs,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list containers: %w", err)
+	}
+
+	result := make([]ContainerInfo, 0, len(containers))
+	for _, c := range containers {
+		name := c.Names[0]
+		if len(name) > 0 && name[0] == '/' {
+			name = name[1:]
+		}
+
+		status := "stopped"
+		if c.State == "running" {
+			status = "running"
+		}
+
+		result = append(result, ContainerInfo{
+			ID:      c.ID,
+			Name:    name,
+			Status:  status,
+			Created: time.Unix(c.Created, 0),
+		})
+	}
+
+	return result, nil
 }
