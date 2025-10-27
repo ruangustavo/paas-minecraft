@@ -14,12 +14,13 @@ func NewServerRepository() *ServerRepository {
 	return &ServerRepository{}
 }
 
-func (sr *ServerRepository) Create(name string, port int, subdomain string) (*model.Server, error) {
+func (sr *ServerRepository) Create(name string, port int, subdomain string, userID uuid.UUID) (*model.Server, error) {
 	server := &model.Server{
 		Name:      name,
 		Port:      port,
 		Subdomain: subdomain,
 		Status:    "running",
+		UserID:    userID,
 	}
 
 	db := database.GetDB()
@@ -61,6 +62,28 @@ func (sr *ServerRepository) FindAll() ([]*model.Server, error) {
 	}
 
 	return servers, nil
+}
+
+func (sr *ServerRepository) FindAllByUserID(userID uuid.UUID) ([]*model.Server, error) {
+	db := database.GetDB()
+
+	var servers []*model.Server
+	if err := db.Where("user_id = ?", userID).Order("created_at desc").Find(&servers).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch servers by user ID: %w", err)
+	}
+
+	return servers, nil
+}
+
+func (sr *ServerRepository) FindByIDAndUserID(id uuid.UUID, userID uuid.UUID) (*model.Server, error) {
+	db := database.GetDB()
+
+	server := &model.Server{}
+	if err := db.Where("id = ? AND user_id = ?", id, userID).First(server).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch server by id and user: %w", err)
+	}
+
+	return server, nil
 }
 
 func (sr *ServerRepository) UpdateStatus(id uuid.UUID, status string) error {

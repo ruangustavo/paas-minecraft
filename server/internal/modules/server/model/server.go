@@ -12,6 +12,7 @@ type Server struct {
 	Port      int       `gorm:"not null;default:25565" json:"port"`
 	Subdomain string    `gorm:"size:255" json:"subdomain"`
 	Status    string    `gorm:"size:20;not null;default:'running'" json:"status"`
+	UserID    uuid.UUID `gorm:"type:uuid;not null;index" json:"user_id"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

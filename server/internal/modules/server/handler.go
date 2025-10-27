@@ -60,6 +60,8 @@ func (sc *ServerHandler) CreateServer(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
+	userID := c.Get("user_id").(uuid.UUID)
+
 	existingServer, err := sc.serverRepo.FindByName(server.Name)
 	if err == nil && existingServer != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "Container with this name already exists")
@@ -105,7 +107,7 @@ func (sc *ServerHandler) CreateServer(c echo.Context) error {
 	}
 	dnsCreated = true
 
-	createdServer, err := sc.serverRepo.Create(server.Name, internalPort, subdomain)
+	createdServer, err := sc.serverRepo.Create(server.Name, internalPort, subdomain, userID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to save server: %v", err))
 	}
@@ -127,7 +129,9 @@ func (sc *ServerHandler) CreateServer(c echo.Context) error {
 // @Router			/servers [get]
 // @Security		BearerAuth
 func (sc *ServerHandler) ListServers(c echo.Context) error {
-	servers, err := sc.serverRepo.FindAll()
+	userID := c.Get("user_id").(uuid.UUID)
+
+	servers, err := sc.serverRepo.FindAllByUserID(userID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to list servers: %v", err))
 	}
@@ -150,7 +154,9 @@ func (sc *ServerHandler) GetServer(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid server ID")
 	}
 
-	server, err := sc.serverRepo.FindByID(serverID)
+	userID := c.Get("user_id").(uuid.UUID)
+
+	server, err := sc.serverRepo.FindByIDAndUserID(serverID, userID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "Server not found")
 	}
@@ -174,7 +180,9 @@ func (sc *ServerHandler) StartServer(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid server ID")
 	}
 
-	server, err := sc.serverRepo.FindByID(serverID)
+	userID := c.Get("user_id").(uuid.UUID)
+
+	server, err := sc.serverRepo.FindByIDAndUserID(serverID, userID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "Server not found")
 	}
@@ -221,7 +229,9 @@ func (sc *ServerHandler) StopServer(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid server ID")
 	}
 
-	server, err := sc.serverRepo.FindByID(serverID)
+	userID := c.Get("user_id").(uuid.UUID)
+
+	server, err := sc.serverRepo.FindByIDAndUserID(serverID, userID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "Server not found")
 	}
@@ -268,7 +278,9 @@ func (sc *ServerHandler) DeleteServer(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid server ID")
 	}
 
-	server, err := sc.serverRepo.FindByID(serverID)
+	userID := c.Get("user_id").(uuid.UUID)
+
+	server, err := sc.serverRepo.FindByIDAndUserID(serverID, userID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "Server not found")
 	}
