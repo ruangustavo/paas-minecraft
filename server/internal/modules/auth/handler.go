@@ -40,6 +40,13 @@ func NewAuthHandler(authService *service.AuthService) *AuthHandler {
 	}
 }
 
+// @Summary		Register a new user
+// @Description	Register a new user account with email, password, and name
+// @Tags			auth
+// @Param			request	body		RegisterRequest		true	"User registration data"
+// @Success		201		{object}	AuthResponse		"User registered successfully"
+// @Failure		400		{object}	map[string]string	"Invalid request data"
+// @Router			/auth/register [post]
 func (h *AuthHandler) Register(c echo.Context) error {
 	var req RegisterRequest
 	if err := c.Bind(&req); err != nil {
@@ -70,6 +77,14 @@ func (h *AuthHandler) Register(c echo.Context) error {
 	})
 }
 
+// @Summary		User login
+// @Description	Authenticate user with email and password, returns JWT token
+// @Tags			auth
+// @Param			request	body		LoginRequest		true	"User login credentials"
+// @Success		200		{object}	AuthResponse		"Login successful"
+// @Failure		400		{object}	map[string]string	"Invalid request data"
+// @Failure		401		{object}	map[string]string	"Invalid credentials"
+// @Router			/auth/login [post]
 func (h *AuthHandler) Login(c echo.Context) error {
 	var req LoginRequest
 	if err := c.Bind(&req); err != nil {

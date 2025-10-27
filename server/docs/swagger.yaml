@@ -1,0 +1,307 @@
+basePath: /
+definitions:
+  auth.AuthResponse:
+    properties:
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/auth.UserDTO'
+    type: object
+  auth.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  auth.RegisterRequest:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      password:
+        minLength: 6
+        type: string
+    required:
+    - email
+    - name
+    - password
+    type: object
+  auth.UserDTO:
+    properties:
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  model.Server:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      port:
+        type: integer
+      status:
+        type: string
+      subdomain:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  server.Server:
+    properties:
+      name:
+        type: string
+    required:
+    - name
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: Minecraft PaaS API
+  title: Paas Minecraft
+  version: 1.0.0
+paths:
+  /auth/login:
+    post:
+      description: Authenticate user with email and password, returns JWT token
+      parameters:
+      - description: User login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.LoginRequest'
+      responses:
+        "200":
+          description: Login successful
+          schema:
+            $ref: '#/definitions/auth.AuthResponse'
+        "400":
+          description: Invalid request data
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Invalid credentials
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: User login
+      tags:
+      - auth
+  /auth/register:
+    post:
+      description: Register a new user account with email, password, and name
+      parameters:
+      - description: User registration data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.RegisterRequest'
+      responses:
+        "201":
+          description: User registered successfully
+          schema:
+            $ref: '#/definitions/auth.AuthResponse'
+        "400":
+          description: Invalid request data
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Register a new user
+      tags:
+      - auth
+  /servers:
+    get:
+      description: Get a list of all configured Minecraft servers
+      responses:
+        "200":
+          description: List of servers
+          schema:
+            items:
+              $ref: '#/definitions/model.Server'
+            type: array
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List all Minecraft servers
+      tags:
+      - servers
+    post:
+      description: Create a new Minecraft server with Docker container, proxy configuration,
+        and DNS record
+      parameters:
+      - description: Server creation data
+        in: body
+        name: server
+        required: true
+        schema:
+          $ref: '#/definitions/server.Server'
+      responses:
+        "201":
+          description: Server created successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request data
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a new Minecraft server
+      tags:
+      - servers
+  /servers/{id}:
+    delete:
+      description: Delete a Minecraft server and all its associated resources (container,
+        proxy config, DNS record)
+      responses:
+        "200":
+          description: Server deleted successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid server ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Server not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a Minecraft server
+      tags:
+      - servers
+    get:
+      description: Get details of a specific Minecraft server by ID
+      responses:
+        "200":
+          description: Server details
+          schema:
+            $ref: '#/definitions/model.Server'
+        "400":
+          description: Invalid server ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Server not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get server details
+      tags:
+      - servers
+  /servers/{id}/start:
+    post:
+      description: Start a stopped Minecraft server container
+      responses:
+        "200":
+          description: Server started successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid server ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Server not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Start a Minecraft server
+      tags:
+      - servers
+  /servers/{id}/stop:
+    post:
+      description: Stop a running Minecraft server container
+      responses:
+        "200":
+          description: Server stopped successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid server ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Server not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Stop a Minecraft server
+      tags:
+      - servers
+swagger: "2.0"

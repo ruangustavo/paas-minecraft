@@ -40,6 +40,15 @@ type Server struct {
 	Name string `json:"name" validate:"required,alphanum"`
 }
 
+// @Summary		Create a new Minecraft server
+// @Description	Create a new Minecraft server with Docker container, proxy configuration, and DNS record
+// @Tags			servers
+// @Param			server	body		Server				true	"Server creation data"
+// @Success		201		{object}	map[string]string	"Server created successfully"
+// @Failure		400		{object}	map[string]string	"Invalid request data"
+// @Failure		500		{object}	map[string]string	"Internal server error"
+// @Router			/servers [post]
+// @Security		BearerAuth
 func (sc *ServerHandler) CreateServer(c echo.Context) error {
 	server := new(Server)
 
@@ -110,6 +119,13 @@ func (sc *ServerHandler) CreateServer(c echo.Context) error {
 	})
 }
 
+// @Summary		List all Minecraft servers
+// @Description	Get a list of all configured Minecraft servers
+// @Tags			servers
+// @Success		200	{array}		model.Server	"List of servers"
+// @Failure		500	{object}	map[string]string	"Internal server error"
+// @Router			/servers [get]
+// @Security		BearerAuth
 func (sc *ServerHandler) ListServers(c echo.Context) error {
 	servers, err := sc.serverRepo.FindAll()
 	if err != nil {
@@ -119,6 +135,14 @@ func (sc *ServerHandler) ListServers(c echo.Context) error {
 	return c.JSON(http.StatusOK, servers)
 }
 
+// @Summary		Get server details
+// @Description	Get details of a specific Minecraft server by ID
+// @Tags			servers
+// @Success		200	{object}	model.Server		"Server details"
+// @Failure		400	{object}	map[string]string	"Invalid server ID"
+// @Failure		404	{object}	map[string]string	"Server not found"
+// @Router			/servers/{id} [get]
+// @Security		BearerAuth
 func (sc *ServerHandler) GetServer(c echo.Context) error {
 	id := c.Param("id")
 	serverID, err := uuid.Parse(id)
@@ -134,6 +158,15 @@ func (sc *ServerHandler) GetServer(c echo.Context) error {
 	return c.JSON(http.StatusOK, server)
 }
 
+// @Summary		Start a Minecraft server
+// @Description	Start a stopped Minecraft server container
+// @Tags			servers
+// @Success		200	{object}	map[string]string	"Server started successfully"
+// @Failure		400	{object}	map[string]string	"Invalid server ID"
+// @Failure		404	{object}	map[string]string	"Server not found"
+// @Failure		500	{object}	map[string]string	"Internal server error"
+// @Router			/servers/{id}/start [post]
+// @Security		BearerAuth
 func (sc *ServerHandler) StartServer(c echo.Context) error {
 	id := c.Param("id")
 	serverID, err := uuid.Parse(id)
@@ -172,6 +205,15 @@ func (sc *ServerHandler) StartServer(c echo.Context) error {
 	})
 }
 
+// @Summary		Stop a Minecraft server
+// @Description	Stop a running Minecraft server container
+// @Tags			servers
+// @Success		200	{object}	map[string]string	"Server stopped successfully"
+// @Failure		400	{object}	map[string]string	"Invalid server ID"
+// @Failure		404	{object}	map[string]string	"Server not found"
+// @Failure		500	{object}	map[string]string	"Internal server error"
+// @Router			/servers/{id}/stop [post]
+// @Security		BearerAuth
 func (sc *ServerHandler) StopServer(c echo.Context) error {
 	id := c.Param("id")
 	serverID, err := uuid.Parse(id)
@@ -210,6 +252,15 @@ func (sc *ServerHandler) StopServer(c echo.Context) error {
 	})
 }
 
+// @Summary		Delete a Minecraft server
+// @Description	Delete a Minecraft server and all its associated resources (container, proxy config, DNS record)
+// @Tags			servers
+// @Success		200	{object}	map[string]string	"Server deleted successfully"
+// @Failure		400	{object}	map[string]string	"Invalid server ID"
+// @Failure		404	{object}	map[string]string	"Server not found"
+// @Failure		500	{object}	map[string]string	"Internal server error"
+// @Router			/servers/{id} [delete]
+// @Security		BearerAuth
 func (sc *ServerHandler) DeleteServer(c echo.Context) error {
 	id := c.Param("id")
 	serverID, err := uuid.Parse(id)
