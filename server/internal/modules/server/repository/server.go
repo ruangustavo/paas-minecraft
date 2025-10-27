@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"paas-minecraft/internal/modules/server/model"
 	"paas-minecraft/internal/shared/database"
+
+	"github.com/google/uuid"
 )
 
 type ServerRepository struct{}
@@ -12,9 +14,12 @@ func NewServerRepository() *ServerRepository {
 	return &ServerRepository{}
 }
 
-func (sr *ServerRepository) Create(name string) (*model.Server, error) {
+func (sr *ServerRepository) Create(name string, port int, subdomain string) (*model.Server, error) {
 	server := &model.Server{
-		Name: name,
+		Name:      name,
+		Port:      port,
+		Subdomain: subdomain,
+		Status:    "running",
 	}
 
 	db := database.GetDB()
@@ -34,4 +39,46 @@ func (sr *ServerRepository) FindByName(name string) (*model.Server, error) {
 	}
 
 	return server, nil
+}
+
+func (sr *ServerRepository) FindByID(id uuid.UUID) (*model.Server, error) {
+	db := database.GetDB()
+
+	server := &model.Server{}
+	if err := db.Where("id = ?", id).First(server).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch server by id: %w", err)
+	}
+
+	return server, nil
+}
+
+func (sr *ServerRepository) FindAll() ([]*model.Server, error) {
+	db := database.GetDB()
+
+	var servers []*model.Server
+	if err := db.Order("created_at desc").Find(&servers).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch all servers: %w", err)
+	}
+
+	return servers, nil
+}
+
+func (sr *ServerRepository) UpdateStatus(id uuid.UUID, status string) error {
+	db := database.GetDB()
+
+	if err := db.Model(&model.Server{}).Where("id = ?", id).Update("status", status).Error; err != nil {
+		return fmt.Errorf("failed to update server status: %w", err)
+	}
+
+	return nil
+}
+
+func (sr *ServerRepository) Delete(id uuid.UUID) error {
+	db := database.GetDB()
+
+	if err := db.Where("id = ?", id).Delete(&model.Server{}).Error; err != nil {
+		return fmt.Errorf("failed to delete server: %w", err)
+	}
+
+	return nil
 }

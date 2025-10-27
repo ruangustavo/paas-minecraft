@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"paas-minecraft/internal/modules/server/model"
+	authModel "paas-minecraft/internal/modules/auth/model"
+	serverModel "paas-minecraft/internal/modules/server/model"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -39,7 +40,7 @@ func InitDB() error {
 }
 
 func runMigrations() error {
-	return DB.AutoMigrate(&model.Server{})
+	return DB.AutoMigrate(&authModel.User{}, &serverModel.Server{})
 }
 
 func GetDB() *gorm.DB {
