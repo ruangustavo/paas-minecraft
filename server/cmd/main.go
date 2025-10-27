@@ -13,6 +13,10 @@ import (
 	"paas-minecraft/internal/modules/server/service"
 	"paas-minecraft/internal/shared/database"
 
+	_ "paas-minecraft/docs"
+
+	echoSwagger "github.com/swaggo/echo-swagger"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
@@ -30,6 +34,11 @@ func (cv *CustomValidator) Validate(i interface{}) error {
 	return nil
 }
 
+// @title           Paas Minecraft
+// @version         1.0.0
+// @description     Minecraft PaaS API
+// @host            localhost:8080
+// @BasePath        /
 func main() {
 	if err := godotenv.Load(".env"); err != nil {
 		log.Println("Warning: .env file not found or could not be loaded:", err)
@@ -44,6 +53,7 @@ func main() {
 	e.Validator = &CustomValidator{validator: validator.New()}
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
+	e.GET("/swagger/*", echoSwagger.WrapHandler)
 
 	dockerService := service.NewDockerService()
 	infraredService := service.NewInfraredService("./config/infrared/proxies", dockerService)
